@@ -1,14 +1,14 @@
 package main
 
 import (
-	tf "github.com/tensorflow/tensorflow/tensorflow/go"
-	"io/ioutil"
-	"os"
 	"bufio"
 	"fmt"
-	"errors"
+	"io/ioutil"
 	"log"
+	"os"
 	"reflect"
+
+	tf "github.com/tensorflow/tensorflow/tensorflow/go"
 )
 
 const (
@@ -71,7 +71,15 @@ func readLabelsFromFile(labelsFilePath string) ([]string, error) {
 // Import the bytes read to the graph using the method
 // Import with empty prefix (https://godoc.org/github.com/tensorflow/tensorflow/tensorflow/go#Graph.Import)
 func importGraph(graphFilePath string) (*tf.Graph, error) {
-	return nil, errors.New("not implemented")
+	b, err := ioutil.ReadFile(graphFilePath)
+	if err != nil {
+		return nil, err
+	}
+	graph := tf.NewGraph()
+	if err := graph.Import(b, ""); err != nil {
+		return nil, err
+	}
+	return graph, nil
 }
 
 //1, Create a new session using tf.NewSession (https://godoc.org/github.com/tensorflow/tensorflow/tensorflow/go#Session)
@@ -104,10 +112,25 @@ func runGraph(graph *tf.Graph, wavData []byte, labels []string) (string, error) 
 		outputOperationName = "labels_softmax" //Name of node outputting a prediction in the model
 	)
 
-	//YOUR CODE GOES HERE!
+	tensor, err := tf.NewTensor(string(wavData))
+	if err != nil {
+		return "", err
+	}
+	session, err := tf.NewSession(graph, nil)
+	if err != nil {
+		return "", err
+	}
+	output, err := session.Run(
+		map[tf.Output]*tf.Tensor{graph.Operation(inputOperationName).Output(0): tensor},
+		[]tf.Output{graph.Operation(outputOperationName).Output(0)},
+		nil)
+	if err != nil {
+		session.Close()
+		return "", err
+	}
+	defer session.Close()
 
-	// Uncomment this code when the output variable is defined:
-	return "", nil
+	return fmtOutput(output, labels), nil
 }
 
 func fmtOutput(output []*tf.Tensor, labels []string) string {
